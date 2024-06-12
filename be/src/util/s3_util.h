@@ -32,11 +32,10 @@
 #include "common/status.h"
 #include "gutil/hash/hash.h"
 
-namespace Aws {
-namespace S3 {
+namespace Aws::S3 {
 class S3Client;
-} // namespace S3
-} // namespace Aws
+} // namespace Aws::S3
+
 namespace bvar {
 template <typename T>
 class Adder;
@@ -67,14 +66,15 @@ const static std::string S3_MAX_CONN_SIZE = "AWS_MAX_CONN_SIZE";
 const static std::string S3_REQUEST_TIMEOUT_MS = "AWS_REQUEST_TIMEOUT_MS";
 const static std::string S3_CONN_TIMEOUT_MS = "AWS_CONNECTION_TIMEOUT_MS";
 
-struct S3Conf {
+struct S3ClientConf {
+    std::string endpoint;
+    std::string region;
     std::string ak;
     std::string sk;
     std::string token;
-    std::string endpoint;
-    std::string region;
+    // For azure we'd better support the bucket at the first time init azure blob container client
     std::string bucket;
-    std::string prefix;
+    io::ObjStorageType provider = io::ObjStorageType::AWS;
     int max_connections = -1;
     int request_timeout_ms = -1;
     int connect_timeout_ms = -1;
@@ -82,27 +82,25 @@ struct S3Conf {
 
     std::string to_string() const {
         return fmt::format(
-                "(ak={}, sk=*, token={}, endpoint={}, region={}, bucket={}, prefix={}, "
-                "max_connections={}, request_timeout_ms={}, connect_timeout_ms={}, "
-                "use_virtual_addressing={})",
-                ak, token, endpoint, region, bucket, prefix, max_connections, request_timeout_ms,
+                "(ak={}, token={}, endpoint={}, region={}, bucket={}, max_connections={}, "
+                "request_timeout_ms={}, connect_timeout_ms={}, use_virtual_addressing={}",
+                ak, token, endpoint, region, bucket, max_connections, request_timeout_ms,
                 connect_timeout_ms, use_virtual_addressing);
     }
+};
 
-    uint64_t get_hash() const {
-        uint64_t hash_code = 0;
-        hash_code += Fingerprint(ak);
-        hash_code += Fingerprint(sk);
-        hash_code += Fingerprint(token);
-        hash_code += Fingerprint(endpoint);
-        hash_code += Fingerprint(region);
-        hash_code += Fingerprint(bucket);
-        hash_code += Fingerprint(prefix);
-        hash_code += Fingerprint(max_connections);
-        hash_code += Fingerprint(request_timeout_ms);
-        hash_code += Fingerprint(connect_timeout_ms);
-        hash_code += Fingerprint(use_virtual_addressing);
-        return hash_code;
+struct S3Conf {
+    std::string bucket;
+    std::string prefix;
+    S3ClientConf client_conf;
+
+    bool sse_enabled = false;
+    static S3Conf get_s3_conf(const cloud::ObjectStoreInfoPB&);
+    static S3Conf get_s3_conf(const TS3StorageParam&);
+
+    std::string to_string() const {
+        return fmt::format("(bucket={}, prefix={}, client_conf={}, sse_enabled={})", bucket, prefix,
+                           client_conf.to_string(), sse_enabled);
     }
 };
 
@@ -112,24 +110,10 @@ public:
 
     static S3ClientFactory& instance();
 
-    std::shared_ptr<Aws::S3::S3Client> create(const S3Conf& s3_conf);
-
-    static bool is_s3_conf_valid(const std::map<std::string, std::string>& prop);
-
-    static bool is_s3_conf_valid(const S3Conf& s3_conf);
+    std::shared_ptr<io::ObjStorageClient> create(const S3ClientConf& s3_conf);
 
     static Status convert_properties_to_s3_conf(const std::map<std::string, std::string>& prop,
                                                 const S3URI& s3_uri, S3Conf* s3_conf);
-
-    static Aws::Client::ClientConfiguration& getClientConfiguration() {
-        // The default constructor of ClientConfiguration will do some http call
-        // such as Aws::Internal::GetEC2MetadataClient and other init operation,
-        // which is unnecessary.
-        // So here we use a static instance, and deep copy every time
-        // to avoid unnecessary operations.
-        static Aws::Client::ClientConfiguration instance;
-        return instance;
-    }
 
 private:
     S3ClientFactory();
@@ -137,7 +121,7 @@ private:
 
     Aws::SDKOptions _aws_options;
     std::mutex _lock;
-    std::unordered_map<uint64_t, std::shared_ptr<Aws::S3::S3Client>> _cache;
+    std::unordered_map<uint64_t, std::shared_ptr<io::ObjStorageClient>> _cache;
     std::string _ca_cert_file_path;
 };
 

@@ -167,7 +167,7 @@ std::shared_ptr<Aws::S3::S3Client> S3ClientFactory::create(const S3Conf& s3_conf
         }
     }
 
-    Aws::Client::ClientConfiguration aws_config = S3ClientFactory::getClientConfiguration();
+    Aws::Client::ClientConfiguration aws_config;
     aws_config.endpointOverride = s3_conf.endpoint;
     aws_config.region = s3_conf.region;
     std::string ca_cert = get_valid_ca_cert_path();
