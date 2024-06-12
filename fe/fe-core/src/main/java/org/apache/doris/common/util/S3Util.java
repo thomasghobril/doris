@@ -48,22 +48,22 @@ public class S3Util {
     public static S3Client buildS3Client(URI endpoint, String region, CloudCredential credential,
             boolean isUsePathStyle) {
         AwsCredentialsProvider scp;
-        AwsCredentials awsCredential;
-        if (!credential.isTemporary()) {
-            awsCredential = AwsBasicCredentials.create(credential.getAccessKey(), credential.getSecretKey());
-        } else {
-            awsCredential = AwsSessionCredentials.create(credential.getAccessKey(), credential.getSecretKey(),
-                        credential.getSessionToken());
-        }
         if (!credential.isWhole()) {
-            scp = AwsCredentialsProviderChain.of(
-                    SystemPropertyCredentialsProvider.create(),
-                    EnvironmentVariableCredentialsProvider.create(),
-                    WebIdentityTokenFileCredentialsProvider.create(),
-                    ProfileCredentialsProvider.create(),
-                    InstanceProfileCredentialsProvider.create());
+                scp = AwsCredentialsProviderChain.of(
+                        SystemPropertyCredentialsProvider.create(),
+                        EnvironmentVariableCredentialsProvider.create(),
+                        WebIdentityTokenFileCredentialsProvider.create(),
+                        ProfileCredentialsProvider.create(),
+                        InstanceProfileCredentialsProvider.create());
         } else {
-            scp = StaticCredentialsProvider.create(awsCredential);
+                AwsCredentials awsCredential;
+                if (!credential.isTemporary()) {
+                        awsCredential = AwsBasicCredentials.create(credential.getAccessKey(), credential.getSecretKey());
+                } else {
+                        awsCredential = AwsSessionCredentials.create(credential.getAccessKey(), credential.getSecretKey(),
+                                credential.getSessionToken());
+                }
+                scp = StaticCredentialsProvider.create(awsCredential);
         }
         EqualJitterBackoffStrategy backoffStrategy = EqualJitterBackoffStrategy
                 .builder()
